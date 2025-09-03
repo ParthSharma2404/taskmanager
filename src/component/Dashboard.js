@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
+// import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import API from "../api";
 
@@ -21,17 +22,22 @@ function Dashboard() {
     }
   }, [user]);
 
-  const fetchTasks = async () => {
-    try {
-      const res = await API.get("/auth/tasks", {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-      setTasks(res.data);
-    } catch (err) {
-      console.error("Failed to fetch tasks:", err);
-      setError(err.response?.data?.error || "Failed to load tasks");
-    }
-  };
+
+const fetchTasks = useCallback(async () => {
+  if (!user?.token) return;
+  try {
+    const res = await API.get("/auth/tasks", {
+      headers: { Authorization: `Bearer ${user.token}` },
+    });
+    setTasks(res.data);
+  } catch (err) {
+    console.error("Failed to fetch tasks:", err);
+  }
+}, [user]);
+
+useEffect(() => {
+  fetchTasks();
+}, [fetchTasks]);
 
   const handleInputChange = (e) => {
     setNewTask({ ...newTask, [e.target.name]: e.target.value });
