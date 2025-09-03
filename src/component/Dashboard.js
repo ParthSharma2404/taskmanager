@@ -1,210 +1,163 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
-import Navbar from './NavBar';
-import axios from 'axios';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import API from "../api";
 
 function Dashboard() {
-  const { user } = useContext(AuthContext);
-  const [button, setButton] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState('low');
-  const [category, setCategory] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const { user, logout } = useContext(AuthContext);
   const [tasks, setTasks] = useState([]);
-  const [error, setError] = useState('');
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    priority: "Normal",
+    category: "General",
+    dueDate: "",
+  });
+  const [error, setError] = useState("");
 
-  const fetchTasks = useCallback(async () => {
-    if (!user) return;
-    try {
-      const response = await axios.get('http://localhost:5000/api/auth/tasks', {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
-      setTasks(response.data);
-    } catch (err) {
-      console.error('Failed to fetch tasks:', err.response?.status, err.response?.data?.error || err.message);
-      setError('Failed to load tasks');
+  // ✅ Fetch tasks on mount
+  useEffect(() => {
+    if (user?.token) {
+      fetchTasks();
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+  const fetchTasks = async () => {
+    try {
+      const res = await API.get("/auth/tasks", {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      setTasks(res.data);
+    } catch (err) {
+      console.error("Failed to fetch tasks:", err);
+      setError(err.response?.data?.error || "Failed to load tasks");
+    }
+  };
 
-  const handleSubmit = async (e) => {
+  const handleInputChange = (e) => {
+    setNewTask({ ...newTask, [e.target.name]: e.target.value });
+  };
+
+  const addTask = async (e) => {
     e.preventDefault();
-    if (!title) {
-      setError('Title is required');
-      return;
-    }
     try {
-      await axios.post(
-        'http://localhost:5000/api/auth/tasks',
-        { title, description, priority, category, dueDate },
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
-      setTitle('');
-      setDescription('');
-      setPriority('low');
-      setCategory('');
-      setDueDate('');
-      setButton(false);
-      fetchTasks();
-      setError('');
+      const res = await API.post("/auth/tasks", newTask, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      setTasks([...tasks, res.data.task]);
+      setNewTask({
+        title: "",
+        description: "",
+        priority: "Normal",
+        category: "General",
+        dueDate: "",
+      });
     } catch (err) {
-      console.error('Failed to create task:', err.response?.status, err.response?.data?.error || err.message);
-      setError('Failed to create task');
+      console.error("Failed to add task:", err);
+      setError(err.response?.data?.error || "Could not create task");
     }
   };
 
-  const handleToggleComplete = async (taskId, completed) => {
+  const toggleTaskCompletion = async (taskId, completed) => {
     try {
-      await axios.patch(
-        `http://localhost:5000/api/auth/tasks/${taskId}`,
-        { completed: !completed },
+      const res = await API.patch(
+        `/auth/tasks/${taskId}`,
+        { completed },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
-      fetchTasks(); // Refresh the task list
+      setTasks(tasks.map((t) => (t._id === taskId ? res.data.task : t)));
     } catch (err) {
-      console.error('Failed to update task:', err.response?.status, err.response?.data?.error || err.message);
-      setError('Failed to update task');
+      console.error("Failed to update task:", err);
+      setError(err.response?.data?.error || "Could not update task");
     }
   };
-
-  const totalTasks = tasks.length;
-  const pendingTasks = tasks.filter(task => !task.completed).length;
-  const completedTasks = tasks.filter(task => task.completed).length;
 
   return (
-    <>
-      <Navbar />
-      <div className='bg-[#08080a] min-h-screen'>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4'>
-          <div className='bg-[#0c0c0f] border-[2px] border-gray-900 p-5 rounded-xl hover:scale-103 transition-transform'>
-            <h1 className='text-[#a2a2ab] text-xl'>Total Tasks</h1>
-            <p className='text-white font-bold text-2xl'>{totalTasks}</p>
-            <p className='text-white bg-[#7d40de] w-fit rounded px-2 mt-1'>All Tasks</p>
-          </div>
-          <div className='bg-[#0c0c0f] border-[2px] border-gray-900 p-5 rounded-xl hover:scale-103 transition-transform'>
-            <h1 className='text-[#a2a2ab] text-xl'>Pending Tasks</h1>
-            <p className='text-white font-bold text-2xl'>{pendingTasks}</p>
-            <p className='text-white bg-[#F59F0A] w-fit rounded px-2 mt-1'>In Progress</p>
-          </div>
-          <div className='bg-[#0c0c0f] border-[2px] border-gray-900 p-5 rounded-xl hover:scale-103 transition-transform'>
-            <h1 className='text-[#a2a2ab] text-xl'>Completed Tasks</h1>
-            <p className='text-white font-bold text-2xl'>{completedTasks}</p>
-            <p className='text-white bg-[#00ad00] w-fit rounded px-2  mt-1'>Done</p>
-          </div>
-        </div>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4'>
-          <div className='h-fit p-3 col-span-1 bg-[#0c0c0f] border-[2px] border-gray-900 rounded-xl hover:scale-103 transition-transform'>
-            {!button ? (
-              <button
-                className='w-full bg-[#7d40de] text-white py-3 px-10 rounded hover:bg-[#6b35c2] transition-colors'
-                onClick={() => setButton(!button)}
-              >
-                Add Task
-              </button>
-            ) : (
-              <form onSubmit={handleSubmit} className='flex flex-col gap-2'>
-                <h1 className='text-[#a2a2ab] font-bold text-3xl pb-5'>Add New Task</h1>
-                {error && <p className='text-red-500'>{error}</p>}
-                <label className='text-white'>Task Title*</label>
-                <input
-                  type='text'
-                  className='w-full bg-[#0c0c0f] border-[2px] border-gray-900 p-2 rounded-xl text-white'
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-                <label className='text-white'>Description</label>
-                <textarea
-                  className='w-full bg-[#0c0c0f] border-[2px] border-gray-900 p-2 rounded-xl text-white'
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-                <div className='flex gap-4 my-2'>
-                  <div>
-                    <label className='text-white'>Priority</label>
-                    <select
-                      className='w-full bg-[#0c0c0f] border-[2px] border-gray-900 p-2 rounded-xl text-white'
-                      value={priority}
-                      onChange={(e) => setPriority(e.target.value)}
-                    >
-                      <option value='low'>Low</option>
-                      <option value='medium'>Medium</option>
-                      <option value='high'>High</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className='text-white'>Category</label>
-                    <input
-                      type='text'
-                      className='w-full bg-[#0c0c0f] border-[2px] border-gray-900 p-2 rounded-xl text-white'
-                      placeholder='eg., Work, Personal...'
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className='pb-5'>
-                  <label className='text-white'>Due Date</label>
-                  <input
-                    type='date'
-                    className='w-full bg-[#0c0c0f] border-[2px] border-gray-900 p-2 rounded-xl'
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                  />
-                </div>
-                <button
-                  type='submit'
-                  className='w-full bg-[#7d40de] text-white py-3 px-10 rounded mb-4 hover:bg-[#6b35c2] transition-colors'
-                >
-                  Add Task
-                </button>
-                <button
-                  className='w-full bg-[#08080a] text-white py-3 px-10 rounded border-1 border-[#7d40de] cursor-pointer'
-                  onClick={()=>setButton(!button)}
-                >
-                  Cancel
-                </button>
-              </form>
-            )}
-          </div>
-          <div className='h-fit col-span-2 bg-[#0c0c0f] border-[2px] border-gray-900 p-5 rounded-xl hover:scale-101 transition-transform'>
-            <h1 className='text-[#a2a2ab] text-xl'>Tasks</h1>
-            {tasks.map((task) => (
-              <div key={task._id} className='bg-[#1a1a1e] p-3 rounded-md mb-2  items-center'>
-                <input
-                  type='checkbox'
-                  className='mr-2 w-5 h-5 accent-[#7d40de] border-[#7d40de] border-5'
-                  checked={task.completed}
-                  onChange={() => handleToggleComplete(task._id, task.completed)}
-                />
-                <div className={task.completed ? 'line-through text-gray-500' : ''}>
-                  <h2 className='inline font-bold text-white'>{task.title}</h2><br/>
-                  <p className='inline text-[#a2a2ab]'>{task.description || 'No description'}</p>
-                </div>
-                <div className='flex justify-between mt-2'>
-                {task.priority === 'high' ? (
-                  <p className='text-[#7d40de] bg-[#ad0000] ml-1 px-2 py-1 rounded text-white'>{task.priority}</p>
-                ) : task.priority === 'medium' ? (
-                  <p className='text-[#7d40de] bg-[#d8a800] ml-1 px-2 py-1 rounded text-white'>{task.priority}</p>
-                ) : (
-                  <p className='text-[#7d40de] bg-[#00ad00] ml-1 px-2 py-1 rounded text-white'>{task.priority}</p>
-                )}
-                {/* <p className='text-[#7d40de] '>{task.priority}</p> */}
-                <div className='flex gap-4'>
-                <p className='text-[#a2a2ab] ml-2'>Category: {task.category || 'Uncategorized'}</p>
-                <p className='text-[#a2a2ab] ml-2'>Due: {new Date(task.dueDate).toLocaleDateString()}</p>
-                </div>
-                </div>
-              </div>
-            ))}
-            {tasks.length === 0 && <p className='text-[#a2a2ab]'>No tasks yet.</p>}
-          </div>
-        </div>
+    <div className="p-6 bg-[#0c0c0f] min-h-screen text-white">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Welcome, {user?.fullName}</h1>
+        <button
+          onClick={logout}
+          className="px-4 py-2 bg-red-500 rounded hover:bg-red-600 transition"
+        >
+          Logout
+        </button>
       </div>
-    </>
+
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+
+      {/* ✅ Add Task Form */}
+      <form onSubmit={addTask} className="mb-6 space-y-3">
+        <input
+          type="text"
+          name="title"
+          value={newTask.title}
+          onChange={handleInputChange}
+          placeholder="Task title"
+          className="w-full p-2 bg-[#1a1a1e] border border-gray-700 rounded"
+          required
+        />
+        <textarea
+          name="description"
+          value={newTask.description}
+          onChange={handleInputChange}
+          placeholder="Task description"
+          className="w-full p-2 bg-[#1a1a1e] border border-gray-700 rounded"
+        />
+        <input
+          type="date"
+          name="dueDate"
+          value={newTask.dueDate}
+          onChange={handleInputChange}
+          className="w-full p-2 bg-[#1a1a1e] border border-gray-700 rounded"
+        />
+        <button
+          type="submit"
+          className="px-4 py-2 bg-[#7d40de] rounded hover:bg-[#6b35c2]"
+        >
+          Add Task
+        </button>
+      </form>
+
+      {/* ✅ Task List */}
+      <div>
+        {tasks.length === 0 ? (
+          <p>No tasks yet. Add one!</p>
+        ) : (
+          <ul className="space-y-3">
+            {tasks.map((task) => (
+              <li
+                key={task._id}
+                className="flex justify-between items-center bg-[#1a1a1e] p-3 rounded"
+              >
+                <div>
+                  <h3
+                    className={`text-lg font-medium ${
+                      task.completed ? "line-through text-gray-400" : ""
+                    }`}
+                  >
+                    {task.title}
+                  </h3>
+                  <p className="text-sm text-gray-400">{task.description}</p>
+                  <p className="text-xs text-gray-500">
+                    Due: {task.dueDate?.split("T")[0] || "N/A"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => toggleTaskCompletion(task._id, !task.completed)}
+                  className={`px-3 py-1 rounded ${
+                    task.completed
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {task.completed ? "Completed" : "Mark Complete"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 
