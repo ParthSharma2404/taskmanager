@@ -17,10 +17,11 @@ function Dashboard() {
 
   // ✅ Fetch tasks on mount
   useEffect(() => {
-    if (user?.token) {
-      fetchTasks();
-    }
-  }, [user]);
+  if (user?.token) {
+    fetchTasks();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user]);
 
 
 const fetchTasks = useCallback(async () => {
