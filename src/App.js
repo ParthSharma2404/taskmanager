@@ -7,10 +7,14 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-        </Routes>
+        <div className="App">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            {/* Catch all route - redirect to home */}
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </div>
       </Router>
     </AuthProvider>
   );
