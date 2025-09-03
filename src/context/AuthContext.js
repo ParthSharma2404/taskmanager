@@ -9,9 +9,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-
     if (token) {
-      // ✅ Set token on API headers
       API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       fetchUserData(token);
     } else {
@@ -24,9 +22,9 @@ export const AuthProvider = ({ children }) => {
       const res = await API.get("/auth/user");
       setUser({ ...res.data, token });
     } catch (err) {
-      console.error("Failed to fetch user data:", err);
+      console.error("Fetch user failed:", err.response?.data || err.message);
       setUser(null);
-      localStorage.removeItem("token"); // remove invalid token
+      localStorage.removeItem("token");
     } finally {
       setLoading(false);
     }
